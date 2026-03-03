@@ -1,0 +1,16 @@
+# Binary
+acm-cli
+
+# ONNX models (large files)
+models/*.onnx
+models/*.bin
+
+# SQLite
+*.db
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
