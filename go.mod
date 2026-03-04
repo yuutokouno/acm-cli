@@ -7,4 +7,5 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.34 // indirect
 	github.com/spf13/cobra v1.10.2 // indirect
 	github.com/spf13/pflag v1.0.9 // indirect
+	github.com/yalue/onnxruntime_go v1.26.0 // indirect
 )
