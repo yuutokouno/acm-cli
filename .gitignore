@@ -14,3 +14,6 @@ models/*.bin
 
 # OS
 .DS_Store
+
+# Worktrees
+.worktrees/
