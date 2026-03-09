@@ -128,12 +128,19 @@ func (s *SQLiteStore) GetContentHash(id string) (string, error) {
 }
 
 func (s *SQLiteStore) Delete(id string) error {
-	_, err := s.db.Exec(`DELETE FROM notes WHERE id = ?`, id)
+	tx, err := s.db.Begin()
 	if err != nil {
-		return err
+		return fmt.Errorf("begin transaction: %w", err)
 	}
-	_, err = s.db.Exec(`DELETE FROM note_embeddings WHERE note_id = ?`, id)
-	return err
+	defer tx.Rollback() //nolint:errcheck
+
+	if _, err := tx.Exec(`DELETE FROM notes WHERE id = ?`, id); err != nil {
+		return fmt.Errorf("delete note: %w", err)
+	}
+	if _, err := tx.Exec(`DELETE FROM note_embeddings WHERE note_id = ?`, id); err != nil {
+		return fmt.Errorf("delete embedding: %w", err)
+	}
+	return tx.Commit()
 }
 
 // ---- memo.VectorStore ----
@@ -172,22 +179,14 @@ func (s *SQLiteStore) GetAllEmbeddings() (map[string][]float64, error) {
 	return result, rows.Err()
 }
 
-// Search is a stub — full cosine similarity search is implemented in similarity/cosine.go
-// and called by the command layer after loading embeddings via GetAllEmbeddings.
-// This method is kept here to satisfy the memo.VectorStore interface for future
-// native vector-index implementations (e.g. sqlite-vec).
-func (s *SQLiteStore) Search(queryVec []float64, limit int) ([]memo.SearchResult, error) {
-	return nil, fmt.Errorf("Search: use GetAllEmbeddings + similarity.TopN instead")
-}
-
 // ---- helpers ----
 
-// scanner is satisfied by both *sql.Row and *sql.Rows.
-type scanner interface {
+// rowScanner is satisfied by both *sql.Row and *sql.Rows.
+type rowScanner interface {
 	Scan(dest ...any) error
 }
 
-func scanMemo(row scanner) (*memo.Memo, error) {
+func scanMemo(row rowScanner) (*memo.Memo, error) {
 	var m memo.Memo
 	var tagsJSON, linksJSON string
 	var createdAt, updatedAt, scannedAt string
@@ -201,19 +200,35 @@ func scanMemo(row scanner) (*memo.Memo, error) {
 	}
 
 	if err := json.Unmarshal([]byte(tagsJSON), &m.Tags); err != nil {
-		m.Tags = nil
+		return nil, fmt.Errorf("unmarshal tags for %s: %w", m.ID, err)
 	}
 	if err := json.Unmarshal([]byte(linksJSON), &m.Links); err != nil {
-		m.Links = nil
+		return nil, fmt.Errorf("unmarshal links for %s: %w", m.ID, err)
 	}
 
-	parseTime := func(s string) time.Time {
-		t, _ := time.Parse(time.RFC3339, s)
-		return t
+	var err error
+	if m.CreatedAt, err = parseTime(createdAt); err != nil {
+		return nil, fmt.Errorf("parse created_at for %s: %w", m.ID, err)
 	}
-	m.CreatedAt = parseTime(createdAt)
-	m.UpdatedAt = parseTime(updatedAt)
-	m.ScannedAt = parseTime(scannedAt)
+	if m.UpdatedAt, err = parseTime(updatedAt); err != nil {
+		return nil, fmt.Errorf("parse updated_at for %s: %w", m.ID, err)
+	}
+	if m.ScannedAt, err = parseTime(scannedAt); err != nil {
+		return nil, fmt.Errorf("parse scanned_at for %s: %w", m.ID, err)
+	}
 
 	return &m, nil
+}
+
+// parseTime tries RFC3339 first, then SQLite's default DATETIME format.
+func parseTime(s string) (time.Time, error) {
+	if s == "" {
+		return time.Time{}, nil
+	}
+	for _, layout := range []string{time.RFC3339, "2006-01-02 15:04:05"} {
+		if t, err := time.Parse(layout, s); err == nil {
+			return t, nil
+		}
+	}
+	return time.Time{}, fmt.Errorf("unrecognised time format: %q", s)
 }

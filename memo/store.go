@@ -13,9 +13,10 @@ type Store interface {
 }
 
 // VectorStore defines persistence and retrieval for note embeddings.
+// Similarity search is performed in-process via similarity.TopN after loading
+// all embeddings with GetAllEmbeddings.
 type VectorStore interface {
 	SaveEmbedding(noteID string, vec []float64) error
-	Search(queryVec []float64, limit int) ([]SearchResult, error)
 	GetAllEmbeddings() (map[string][]float64, error)
 }
 

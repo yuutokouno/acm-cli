@@ -32,7 +32,8 @@ func Parse(raw string) ParseResult {
 func splitFrontMatter(raw string) (map[string]string, string) {
 	fm := make(map[string]string)
 
-	if !strings.HasPrefix(raw, "---") {
+	// Require "---\n" (or "---\r\n") to avoid treating "---title" as front matter.
+	if !strings.HasPrefix(raw, "---\n") && !strings.HasPrefix(raw, "---\r\n") {
 		return fm, raw
 	}
 
