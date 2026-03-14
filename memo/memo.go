@@ -1,6 +1,20 @@
 package memo
 
-import "time"
+import (
+	"crypto/sha256"
+	"fmt"
+	"time"
+)
+
+// NewID returns a stable identifier for a note derived from its file path.
+func NewID(filePath string) string {
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(filePath)))
+}
+
+// NewContentHash returns a hash of the note body used for change detection.
+func NewContentHash(content string) string {
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(content)))
+}
 
 // Memo represents a single Obsidian note with its metadata and content.
 type Memo struct {

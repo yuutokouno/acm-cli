@@ -9,10 +9,20 @@ import (
 
 const version = "0.1.0"
 
-var rootCmd = &cobra.Command{
-	Use:     "acm",
-	Short:   "acm — Obsidian knowledge base enhancer",
-	Version: version,
+var rootCmd = NewRootCmd()
+
+// NewRootCmd builds and returns a fresh root command.
+// Exported so tests can construct an isolated instance.
+func NewRootCmd() *cobra.Command {
+	root := &cobra.Command{
+		Use:     "acm",
+		Short:   "acm — Obsidian knowledge base enhancer",
+		Version: version,
+	}
+
+	root.AddCommand(newScanCmd())
+
+	return root
 }
 
 func Execute() {
